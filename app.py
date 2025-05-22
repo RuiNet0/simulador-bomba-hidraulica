@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit.components.v1 as components
 import time
-from funcoes import altura_mano, eficiencia, potencia_hidraulica
+from funcoes import altura_mano, eficiencia, potencia_hidraulica, potencia_bomba, potencia_cv, npsh_disponivel, npsh_requerido
 
 st.set_page_config(page_title="Simulador de Bomba Hidráulica", layout="centered")
 
@@ -46,40 +46,34 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Entradas do usuário
-Q = np.linspace(0, 50, 100)  # Vazão de 0 a 50 L/s
+# Entrada direta da vazão pelo usuário
+Q_max = st.sidebar.number_input("Vazão (Q) [L/s]", min_value=0.0, max_value=100.0, value=30.0, step=0.1)
+Q = np.linspace(0, Q_max, 100)
 
-col1, col2 = st.sidebar.columns([1, 1])
+# Entradas principais
+st.sidebar.markdown("### Parâmetros da Bomba")
 
-with col1:
-    H0_slider = st.slider("Altura máxima (H0) [m]", 10, 100, 50)
-with col2:
-    H0 = st.number_input("H0 [m]", min_value=10.0, max_value=100.0, value=float(H0_slider), step=1.0)
+H0 = st.sidebar.number_input("Altura máxima (H0) [m]", min_value=10.0, max_value=100.0, value=50.0, step=1.0)
+k = st.sidebar.number_input("Coeficiente de perda (k)", min_value=0.001, max_value=0.05, value=0.01, step=0.001)
+eta_max_percent = st.sidebar.number_input("Eficiência máxima (%)", min_value=50.0, max_value=90.0, value=80.0, step=1.0)
+largura = st.sidebar.number_input("Largura da Curva de Eficiência", 0.1, 1.0, 0.5)
+Q_opt = st.sidebar.number_input("Vazão ótima (Q_opt) [L/s]", min_value=10.0, max_value=50.0, value=30.0, step=1.0)
+hs = st.sidebar.number_input("Altura de sucção (hs) [m]", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
+hfs = st.sidebar.number_input("Perda de carga na sucção (hfs) [m]", min_value=0.0, max_value=5.0, value=0.5, step=0.1)
+Pv = st.sidebar.number_input("Pressão de vapor da água (Pv) [m]", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+Patm = st.sidebar.number_input("Pressão atmosférica (Patm) [m]", min_value=9.0, max_value=11.0, value=10.33, step=0.01)
 
-col3, col4 = st.sidebar.columns([1, 1])
-with col3:
-    k_slider = st.slider("Coeficiente de perda (k)", 0.001, 0.05, 0.01, step=0.001)
-with col4:
-    k = st.number_input("k", min_value=0.001, max_value=0.05, value=float(k_slider), step=0.001)
-
-col5, col6 = st.sidebar.columns([1, 1])
-with col5:
-    eta_max_slider = st.slider("Eficiência máxima (%)", 50, 90, 80)
-with col6:
-    eta_max_percent = st.number_input("Eficiência (%)", min_value=50.0, max_value=90.0, value=float(eta_max_slider), step=1.0)
-
-col7, col8 = st.sidebar.columns([1, 1])
-with col7:
-    Q_opt_slider = st.slider("Vazão ótima (Q_opt) [L/s]", 10, 50, 30)
-with col8:
-    Q_opt = st.number_input("Q_opt [L/s]", min_value=10.0, max_value=50.0, value=float(Q_opt_slider), step=1.0)
-
-# Conversão de eficiência
+# Conversão da eficiência para decimal
 eta_max = eta_max_percent / 100
 
 # Cálculos usando funções externas
 H = altura_mano(Q, H0, k)
-eta = eficiencia(Q, eta_max, Q_opt)
+eta = eficiencia(Q, eta_max, Q_opt, largura)
 P = potencia_hidraulica(Q, H)
+P_bomba = potencia_bomba(P, eta)
+P_cv = potencia_cv(P_bomba)
+NPSHa = npsh_disponivel(hs, hfs, Pv, Patm)
+NPSHr = npsh_requerido(Q)
 
 # CSS de animação fade-in
 components.html(
@@ -145,6 +139,47 @@ fig3.update_layout(
     height=400
 )
 
+# Gráfico – NPSHa vs NPSHr com Plotly
+fig_npsh = go.Figure()
+
+# Linha do NPSHa constante
+fig_npsh.add_trace(go.Scatter(
+    x=Q,
+    y=[NPSHa] * len(Q),
+    mode='lines',
+    name='NPSHa (Disponível)',
+    line=dict(color='green', dash='dash')
+))
+
+# Linha do NPSHr variável
+fig_npsh.add_trace(go.Scatter(
+    x=Q,
+    y=NPSHr,
+    mode='lines',
+    name='NPSHr (Requerido)',
+    line=dict(color='red')
+))
+
+# Área da região segura (onde NPSHa > NPSHr)
+fig_npsh.add_trace(go.Scatter(
+    x=np.concatenate([Q, Q[::-1]]),
+    y=np.concatenate([NPSHr, [NPSHa]*len(Q)][::-1]),
+    fill='toself',
+    fillcolor='rgba(0, 255, 0, 0.2)',
+    line=dict(color='rgba(255,255,255,0)'),
+    hoverinfo="skip",
+    showlegend=True,
+    name="Região segura"
+))
+
+fig_npsh.update_layout(
+    title="NPSHa vs NPSHr",
+    xaxis_title="Vazão [L/s]",
+    yaxis_title="Altura [m]",
+    template="plotly_white",
+    height=400
+)
+
 # Exibição com transição suave
 with st.spinner("🔄 Gerando gráficos..."):
     time.sleep(0.3)  # atraso curto para suavizar
@@ -156,7 +191,32 @@ with st.spinner("🔄 Gerando gráficos..."):
     st.plotly_chart(fig2, use_container_width=True)
     st.markdown("---") 
     st.plotly_chart(fig3, use_container_width=True)
+    st.markdown("---")
+    st.plotly_chart(fig_npsh, use_container_width=True)
 
+
+
+    # Exibição dos resultados
+    st.markdown("### 🔍 Resultados Calculados")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Potência Hidráulica", f"{np.max(P)/1000:.2f} kW")
+    col2.metric("Potência da Bomba (kW)", f"{np.max(P_bomba)/1000:.2f} kW")
+    col3.metric("Potência da Bomba (CV)", f"{np.max(P_cv):.2f} CV")
+
+    st.markdown(f"**NPSH Disponível (NPSHa):** {NPSHa:.2f} m")
+    st.markdown(f"**NPSH Requerido mínimo (NPSHr):** {min(NPSHr):.2f} m")
+
+    if NPSHa > max(NPSHr):
+        st.success("NPSH disponível é maior que o requerido em toda a faixa de operação. ✅ Região segura.")
+    elif NPSHa > min(NPSHr):
+        st.warning("NPSH disponível cobre parte da curva. ⚠️ Verifique a faixa de operação.")
+    else:
+        st.error("NPSH disponível é insuficiente. ❌ Risco de cavitação.")
+
+
+    #Rodapé
     st.markdown("""
     <hr style="margin-top: 50px; margin-bottom: 10px;">
     <p style="text-align: center; font-size: 0.9em; color: #888;">
