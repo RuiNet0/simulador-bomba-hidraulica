@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit.components.v1 as components
 import time
-from funcoes import altura_mano, eficiencia, potencia_hidraulica, potencia_bomba, potencia_cv, npsh_disponivel, npsh_requerido
+from funcoes import altura_mano, eficiencia, potencia_hidraulica, potencia_bomba, potencia_cv, npsh_disponivel, dados_bombas
 
 st.set_page_config(page_title="Simulador de Bomba Hidráulica", layout="centered")
 
@@ -45,6 +45,8 @@ st.markdown("""
     </p>
 """, unsafe_allow_html=True)
 
+bombas = dados_bombas()
+
 # Entradas do usuário
 # Entrada direta da vazão pelo usuário
 Q_max = st.sidebar.number_input("Vazão (Q) [L/s]", min_value=0.0, max_value=100.0, value=30.0, step=0.1)
@@ -53,6 +55,7 @@ Q = np.linspace(0, Q_max, 100)
 # Entradas principais
 st.sidebar.markdown("### Parâmetros da Bomba")
 
+bomba_selecionada = st.sidebar.selectbox("Selecione a bomba", list(bombas.keys()))
 H0 = st.sidebar.number_input("Altura máxima (H0) [m]", min_value=10.0, max_value=100.0, value=50.0, step=1.0)
 k = st.sidebar.number_input("Coeficiente de perda (k)", min_value=0.001, max_value=0.05, value=0.01, step=0.001)
 eta_max_percent = st.sidebar.number_input("Eficiência máxima (%)", min_value=50.0, max_value=90.0, value=80.0, step=1.0)
@@ -66,6 +69,9 @@ Patm = st.sidebar.number_input("Pressão atmosférica (Patm) [m]", min_value=9.0
 # Conversão da eficiência para decimal
 eta_max = eta_max_percent / 100
 
+# Pegando os dados da bomba escolhida
+dados = bombas[bomba_selecionada]
+
 # Cálculos usando funções externas
 H = altura_mano(Q, H0, k)
 eta = eficiencia(Q, eta_max, Q_opt, largura)
@@ -73,7 +79,12 @@ P = potencia_hidraulica(Q, H)
 P_bomba = potencia_bomba(P, eta)
 P_cv = potencia_cv(P_bomba)
 NPSHa = npsh_disponivel(hs, hfs, Pv, Patm)
-NPSHr = npsh_requerido(Q)
+# Os valores fixos da bomba (curva NPSHr)
+Q_npshr = dados["Q_npshr"]
+NPSHr_vals = dados["NPSHr"]
+
+# Interpolando a curva NPSHr para os valores de Q utilizados no gráfico
+NPSHr = np.interp(Q, Q_npshr, NPSHr_vals)
 
 # CSS de animação fade-in
 components.html(

@@ -52,8 +52,18 @@ def npsh_disponivel(hs, hfs, Pv, Patm):
     """
     return Patm - Pv + hs - hfs
 
-def npsh_requerido(Q, NPSHr_min=2.87, coef=0.015):
-    """
-    Estima o NPSHr (requerido) como uma função crescente da vazão.
-    """
-    return NPSHr_min + coef * Q
+def dados_bombas():
+    return {
+        "Schneider BCS-32": {
+            "Q_npshr": [10, 15, 20, 25, 30],
+            "NPSHr":   [2.0, 2.5, 3.0, 3.5, 4.0],
+        },
+        "Schneider BCS-50": {
+            "Q_npshr": [10, 20, 30],
+            "NPSHr":   [2.5, 3.2, 4.0],
+        },
+        "WEG BMC 32-160": {
+            "Q_npshr": [10, 15, 20, 25],
+            "NPSHr":   [2.8, 3.2, 3.5, 4.0],
+        }
+    }
