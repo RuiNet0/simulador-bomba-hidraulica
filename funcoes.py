@@ -67,3 +67,11 @@ def dados_bombas():
             "NPSHr":   [2.8, 3.2, 3.5, 4.0],
         }
     }
+
+def correcao_eficiencia_viscosidade(eta, viscosidade):
+    fator = 1 - (np.log10(viscosidade / 1.0) * 0.02)
+    return np.clip(eta * fator, 0.01, 1.0)
+
+def correcao_npshr_viscosidade(NPSHr, viscosidade):
+    fator = 1 + (np.log10(viscosidade / 1.0) * 0.05)
+    return NPSHr * fator

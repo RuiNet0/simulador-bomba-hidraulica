@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit.components.v1 as components
 import time
-from funcoes import altura_mano, eficiencia, potencia_hidraulica, potencia_bomba, potencia_cv, npsh_disponivel, dados_bombas
+from funcoes import altura_mano, eficiencia, potencia_hidraulica, potencia_bomba, potencia_cv, npsh_disponivel, dados_bombas, correcao_eficiencia_viscosidade, correcao_npshr_viscosidade
 
 st.set_page_config(page_title="Simulador de Bomba Hidráulica", layout="centered")
 
@@ -66,6 +66,12 @@ hfs = st.sidebar.number_input("Perda de carga na sucção (hfs) [m]", min_value=
 Pv = st.sidebar.number_input("Pressão de vapor da água (Pv) [m]", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
 Patm = st.sidebar.number_input("Pressão atmosférica (Patm) [m]", min_value=9.0, max_value=11.0, value=10.33, step=0.01)
 
+st.sidebar.markdown("### Propriedades do Fluido")
+
+viscosidade = st.sidebar.number_input("Viscosidade dinâmica [cP]", min_value=0.1, max_value=1000.0, value=50.0, step=0.1)
+temperatura = st.sidebar.number_input("Temperatura do líquido [°C]", min_value=0.0, max_value=100.0, value=40.0, step=1.0)
+densidade = st.sidebar.number_input("Densidade do fluido [kg/m³]", min_value=500.0, max_value=1500.0, value=900.0, step=1.0)
+
 # Conversão da eficiência para decimal
 eta_max = eta_max_percent / 100
 
@@ -75,8 +81,9 @@ dados = bombas[bomba_selecionada]
 # Cálculos usando funções externas
 H = altura_mano(Q, H0, k)
 eta = eficiencia(Q, eta_max, Q_opt, largura)
-P = potencia_hidraulica(Q, H)
-P_bomba = potencia_bomba(P, eta)
+eta_corrigida = correcao_eficiencia_viscosidade(eta, viscosidade)
+P = potencia_hidraulica(Q, H, rho=densidade)
+P_bomba = potencia_bomba(P, eta_corrigida)
 P_cv = potencia_cv(P_bomba)
 NPSHa = npsh_disponivel(hs, hfs, Pv, Patm)
 # Os valores fixos da bomba (curva NPSHr)
@@ -85,6 +92,7 @@ NPSHr_vals = dados["NPSHr"]
 
 # Interpolando a curva NPSHr para os valores de Q utilizados no gráfico
 NPSHr = np.interp(Q, Q_npshr, NPSHr_vals)
+NPSHr = correcao_npshr_viscosidade(NPSHr, viscosidade)
 
 # CSS de animação fade-in
 components.html(
@@ -150,89 +158,65 @@ fig3.update_layout(
     height=400
 )
 
-# Gráfico – NPSHa vs NPSHr com Plotly
-fig_npsh = go.Figure()
-
-# Linha do NPSHa constante
-fig_npsh.add_trace(go.Scatter(
-    x=Q,
-    y=[NPSHa] * len(Q),
+# Gráfico 4 – Potência da Bomba (com eficiência)
+fig4 = go.Figure()
+fig4.add_trace(go.Scatter(
+    x=Q, y=P_bomba / 1000,
     mode='lines',
-    name='NPSHa (Disponível)',
+    name='Potência da Bomba [kW]',
+    line=dict(color='orange')
+))
+fig4.update_layout(
+    title="Potência Consumida vs Vazão",
+    xaxis_title="Vazão [L/s]",
+    yaxis_title="Potência [kW]",
+    template="plotly_white",
+    height=400
+)
+
+# Gráfico 5 – NPSHr e NPSHa
+fig5 = go.Figure()
+fig5.add_trace(go.Scatter(
+    x=Q, y=NPSHr,
+    mode='lines',
+    name='NPSHr [m]',
+    line=dict(color='purple')
+))
+fig5.add_trace(go.Scatter(
+    x=Q, y=[NPSHa]*len(Q),
+    mode='lines',
+    name='NPSHa [m]',
     line=dict(color='green', dash='dash')
 ))
-
-# Linha do NPSHr variável
-fig_npsh.add_trace(go.Scatter(
-    x=Q,
-    y=NPSHr,
-    mode='lines',
-    name='NPSHr (Requerido)',
-    line=dict(color='red')
-))
-
-# Área da região segura (onde NPSHa > NPSHr)
-fig_npsh.add_trace(go.Scatter(
-    x=np.concatenate([Q, Q[::-1]]),
-    y=np.concatenate([NPSHr, [NPSHa]*len(Q)][::-1]),
-    fill='toself',
-    fillcolor='rgba(0, 255, 0, 0.2)',
-    line=dict(color='rgba(255,255,255,0)'),
-    hoverinfo="skip",
-    showlegend=True,
-    name="Região segura"
-))
-
-fig_npsh.update_layout(
-    title="NPSHa vs NPSHr",
+fig5.update_layout(
+    title="NPSHr vs NPSHa",
     xaxis_title="Vazão [L/s]",
     yaxis_title="Altura [m]",
     template="plotly_white",
     height=400
 )
 
-# Exibição com transição suave
-with st.spinner("🔄 Gerando gráficos..."):
-    time.sleep(0.3)  # atraso curto para suavizar
-    st.markdown('<div class="fade-in">', unsafe_allow_html=True)
+# Exibição dos gráficos no Streamlit
+st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig4, use_container_width=True)
+st.plotly_chart(fig5, use_container_width=True)
 
-    st.markdown("---")  # antes de cada gráfico
-    st.plotly_chart(fig1, use_container_width=True)
-    st.markdown("---")  
-    st.plotly_chart(fig2, use_container_width=True)
-    st.markdown("---") 
-    st.plotly_chart(fig3, use_container_width=True)
-    st.markdown("---")
-    st.plotly_chart(fig_npsh, use_container_width=True)
+# Informações adicionais
+st.markdown("### Informações Adicionais")
+col1, col2, col3 = st.columns(3)
 
-
-
-    # Exibição dos resultados
-    st.markdown("### 🔍 Resultados Calculados")
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("Potência Hidráulica", f"{np.max(P)/1000:.2f} kW")
-    col2.metric("Potência da Bomba (kW)", f"{np.max(P_bomba)/1000:.2f} kW")
-    col3.metric("Potência da Bomba (CV)", f"{np.max(P_cv):.2f} CV")
-
-    st.markdown(f"**NPSH Disponível (NPSHa):** {NPSHa:.2f} m")
-    st.markdown(f"**NPSH Requerido mínimo (NPSHr):** {min(NPSHr):.2f} m")
-
-    if NPSHa > max(NPSHr):
-        st.success("NPSH disponível é maior que o requerido em toda a faixa de operação. ✅ Região segura.")
-    elif NPSHa > min(NPSHr):
-        st.warning("NPSH disponível cobre parte da curva. ⚠️ Verifique a faixa de operação.")
-    else:
-        st.error("NPSH disponível é insuficiente. ❌ Risco de cavitação.")
-
+col1.metric("NPSHa [m]", f"{NPSHa:.2f}")
+col2.metric("Potência Máxima [CV]", f"{max(P_cv):.2f}")
+col3.metric("Eficiência Máx. Corrigida [%]", f"{max(eta_corrigida) * 100:.2f}")
 
     #Rodapé
-    st.markdown("""
+st.markdown("""
     <hr style="margin-top: 50px; margin-bottom: 10px;">
     <p style="text-align: center; font-size: 0.9em; color: #888;">
         Desenvolvido pela <strong>Equipe Fluxo Hidráulico</strong> · Simulação acadêmica
     </p>
 """, unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
