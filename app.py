@@ -56,21 +56,21 @@ Q = np.linspace(0, Q_max, 100)
 st.sidebar.markdown("### Parâmetros da Bomba")
 
 bomba_selecionada = st.sidebar.selectbox("Selecione a bomba", list(bombas.keys()))
-H0 = st.sidebar.number_input("Altura máxima (H0) [m]", min_value=10.0, max_value=100.0, value=50.0, step=1.0)
-k = st.sidebar.number_input("Coeficiente de perda (k)", min_value=0.001, max_value=0.05, value=0.01, step=0.001)
-eta_max_percent = st.sidebar.number_input("Eficiência máxima (%)", min_value=50.0, max_value=90.0, value=80.0, step=1.0)
+H0 = st.sidebar.number_input("Altura máxima (H0) [m]", min_value=00.0, max_value=100.0, value=50.0, step=1.0)
+k = st.sidebar.number_input("Coeficiente de perda (k)", min_value=0.001, max_value=0.1, value=0.01, step=0.001)
+eta_max_percent = st.sidebar.number_input("Eficiência máxima (%)", min_value=00.0, max_value=100.0, value=80.0, step=1.0)
 largura = st.sidebar.number_input("Largura da Curva de Eficiência", 0.1, 1.0, 0.5)
-Q_opt = st.sidebar.number_input("Vazão ótima (Q_opt) [L/s]", min_value=10.0, max_value=50.0, value=30.0, step=1.0)
-hs = st.sidebar.number_input("Altura de sucção (hs) [m]", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
-hfs = st.sidebar.number_input("Perda de carga na sucção (hfs) [m]", min_value=0.0, max_value=5.0, value=0.5, step=0.1)
-Pv = st.sidebar.number_input("Pressão de vapor da água (Pv) [m]", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
-Patm = st.sidebar.number_input("Pressão atmosférica (Patm) [m]", min_value=9.0, max_value=11.0, value=10.33, step=0.01)
+Q_opt = st.sidebar.number_input("Vazão ótima (Q_opt) [L/s]", min_value=00.0, max_value=100.0, value=30.0, step=1.0)
+hs = st.sidebar.number_input("Altura de sucção (hs) [m]", min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+hfs = st.sidebar.number_input("Perda de carga na sucção (hfs) [m]", min_value=0.0, max_value=100.0, value=0.5, step=0.1)
+Pv = st.sidebar.number_input("Pressão de vapor da água (Pv) [m]", min_value=0.0, max_value=100.0, value=0.3, step=0.01)
+Patm = st.sidebar.number_input("Pressão atmosférica (Patm) [m]", min_value=0.0, max_value=100.0, value=10.33, step=0.01)
 
 st.sidebar.markdown("### Propriedades do Fluido")
 
 viscosidade = st.sidebar.number_input("Viscosidade dinâmica [cP]", min_value=0.1, max_value=1000.0, value=50.0, step=0.1)
 temperatura = st.sidebar.number_input("Temperatura do líquido [°C]", min_value=0.0, max_value=100.0, value=40.0, step=1.0)
-densidade = st.sidebar.number_input("Densidade do fluido [kg/m³]", min_value=500.0, max_value=1500.0, value=900.0, step=1.0)
+densidade = st.sidebar.number_input("Densidade do fluido [kg/m³]", min_value=00.0, max_value=10000.0, value=900.0, step=1.0)
 
 # Conversão da eficiência para decimal
 eta_max = eta_max_percent / 100
