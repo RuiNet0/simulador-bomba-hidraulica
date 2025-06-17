@@ -54,6 +54,10 @@ def npsh_disponivel(hs, hfs, Pv, Patm):
 
 def dados_bombas():
     return {
+        "Beck BC162 - Utilizada no trabalho": {
+            "Q_npshr": [10, 15, 20, 25, 30],
+            "NPSHr":   [2.0, 2.5, 3.0, 3.5, 4.0],
+        },
         "Schneider BCS-32": {
             "Q_npshr": [10, 15, 20, 25, 30],
             "NPSHr":   [2.0, 2.5, 3.0, 3.5, 4.0],
